@@ -32,13 +32,68 @@ async def root():
 async def websocket_cpu(websocket: WebSocket):
     await websocket.accept()
     while True:
+        frequency = psutil.cpu_freq().current if psutil.cpu_freq() else None
+        
+        # Obtener temperatura de la CPU (puede no estar disponible en todos los sistemas)
+        temperatures = None
+        if hasattr(psutil, "sensors_temperatures"):
+            temps = psutil.sensors_temperatures()
+            if "coretemp" in temps:
+                temperatures = temps["coretemp"][0].current  # Primer sensor de temperatura
+        
         data = {
             "usage": psutil.cpu_percent(),
+            "temp": temperatures if temperatures else "No disponible",
+            "frequency": frequency, 
             "timestamp": datetime.utcnow().isoformat() 
         }
         await websocket.send_json(data)
         await asyncio.sleep(1)
 
+@app.websocket("/ws/memoria")
+async def websocket_memoria(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = {
+            "usage": psutil.virtual_memory().percent,  # Solo el porcentaje de uso
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        await websocket.send_json(data)
+        await asyncio.sleep(1)
+
+# WebSocket para procesos en tiempo real
+@app.websocket("/ws/procesos")
+async def websocket_procesos(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        procesos = []
+        for proc in psutil.process_iter(attrs=['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+            procesos.append(proc.info)  # Extrae solo la info relevante
+
+        data = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "procesos": procesos
+        }
+        await websocket.send_json(data)
+        await asyncio.sleep(2)  # Actualizar cada 2 segundos
+
+# Endpoint GET para obtener procesos
+@app.get("/procesos")
+async def get_procesos():
+    procesos = []
+    for proc in psutil.process_iter(attrs=['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+        procesos.append(proc.info)
+
+    data = {
+        "timestamp": datetime.utcnow(),
+        "procesos": procesos
+    }
+
+    # Guardar en MongoDB
+    await db.procesos.insert_one(data)
+
+    return data
 
 @app.get("/cpu")
 async def get_cpu_usage():
