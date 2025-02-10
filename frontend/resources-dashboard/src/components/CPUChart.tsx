@@ -7,6 +7,8 @@ Chart.register(...registerables);
 
 const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
   const [cpuData, setCpuData] = useState<number[]>([]);
+  const [cpuUsage, setCpuUsage] = useState<number>(0);
+  const [cpuFrec, setCpuFrec] = useState<number>(0);
   const [tempCPU, setTempCPU] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null); // Guardamos la referencia del WebSocket
@@ -18,7 +20,10 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
         setCpuData((prevData) => [...prevData.slice(-49), data.usage]); // Últimos 50 valores
+        setCpuUsage(data.usage);
         setTempCPU(data.temp);
+        setCpuFrec(data.frequency);
+        console.log(data);
         setLabels((prevLabels) => [
           ...prevLabels.slice(-49),
           new Date(data.timestamp).toLocaleTimeString(),
@@ -48,6 +53,16 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
         <h2 className="text-xl font-semibold text-center mb-4 text-black">
           Uso de CPU en Tiempo Real
         </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Temperatura: { tempCPU }°C
+        </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Porcentaje de uso: { cpuUsage }%
+        </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Frecuencia: {cpuFrec ? `${cpuFrec.toFixed(2)} MHz` : "0"}
+        </h2>
+
         <Line
           data={{
             labels,
@@ -69,10 +84,6 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
           }}
         />
       </div>
-      <h2>
-        Temperatura: { tempCPU }
-      </h2>
-
     </div>
   );
 };

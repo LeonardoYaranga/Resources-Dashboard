@@ -54,13 +54,21 @@ async def websocket_cpu(websocket: WebSocket):
 async def websocket_memoria(websocket: WebSocket):
     await websocket.accept()
     while True:
+        mem = psutil.virtual_memory()
+
         data = {
-            "usage": psutil.virtual_memory().percent,  # Solo el porcentaje de uso
-            "timestamp": datetime.utcnow().isoformat()
+            "total": mem.total,  # Memoria total en bytes
+            "used": mem.used,  # Memoria usada en bytes
+            "free": mem.available,  # Memoria libre en bytes
+            "buffers": mem.buffers if hasattr(mem, "buffers") else "No disponible",  # Buffers (algunos sistemas no lo soportan)
+            "cache": mem.cached if hasattr(mem, "cached") else "No disponible",  # Caché (algunos sistemas no lo soportan)
+            "usage": mem.percent,  # Uso de memoria en porcentaje
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
         await websocket.send_json(data)
-        await asyncio.sleep(1)
+        await asyncio.sleep(1)  # Actualización cada segundo
+
 
 # WebSocket para procesos en tiempo real
 @app.websocket("/ws/procesos")
