@@ -1,3 +1,22 @@
+# Resources-Dashboard
+# Backend
+cd backend
+python -m venv env    /// python3 -m env venv
+.\env\Scripts\activate ////  source venv/bin/activate
+
+
+pip install -r requirements.txt     
+
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+
+# Frontend 
+cd frontend
+cd resources-dashboard
+npm i
+npm run dev
+
+#More specifications
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
 ## Getting Started
