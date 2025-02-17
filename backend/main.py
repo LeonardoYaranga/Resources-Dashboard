@@ -86,6 +86,64 @@ async def websocket_procesos(websocket: WebSocket):
         await websocket.send_json(data)
         await asyncio.sleep(2)  # Actualizar cada 2 segundos
 
+@app.websocket("/ws/network")
+async def websocket_network(websocket: WebSocket):
+    await websocket.accept()
+    
+    # Obtener valores iniciales para calcular la velocidad de transmisión
+    prev_counters = psutil.net_io_counters()
+
+    while True:
+        current_counters = psutil.net_io_counters()
+
+        data = {
+            "bytes_sent": current_counters.bytes_sent,  # Total de bytes enviados
+            "bytes_recv": current_counters.bytes_recv,  # Total de bytes recibidos
+            "packets_sent": current_counters.packets_sent,  # Total de paquetes enviados
+            "packets_recv": current_counters.packets_recv,  # Total de paquetes recibidos
+            "errors_in": current_counters.errin,  # Errores de entrada
+            "errors_out": current_counters.errout,  # Errores de salida
+            "drop_in": current_counters.dropin,  # Paquetes descartados de entrada
+            "drop_out": current_counters.dropout,  # Paquetes descartados de salida
+            "speed_sent": (current_counters.bytes_sent - prev_counters.bytes_sent) / 2,  # Velocidad de subida (bytes/s)
+            "speed_recv": (current_counters.bytes_recv - prev_counters.bytes_recv) / 2,  # Velocidad de bajada (bytes/s)
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        await websocket.send_json(data)
+
+        # Actualizar valores previos
+        prev_counters = current_counters
+
+        await asyncio.sleep(2)  
+
+@app.websocket("/ws/disk")
+async def websocket_disk(websocket: WebSocket):
+    await websocket.accept()
+    
+    prev_io_counters = psutil.disk_io_counters()
+
+    while True:
+        disk_usage = psutil.disk_usage("/")  # Usa la partición raíz "/"
+        current_io_counters = psutil.disk_io_counters()
+
+        data = {
+            "total": disk_usage.total,  # Espacio total en bytes
+            "used": disk_usage.used,  # Espacio usado en bytes
+            "free": disk_usage.free,  # Espacio libre en bytes
+            "percent": disk_usage.percent,  # Porcentaje de uso del disco
+            "read_speed": (current_io_counters.read_bytes - prev_io_counters.read_bytes) / 2,  # Velocidad de lectura (bytes/s)
+            "write_speed": (current_io_counters.write_bytes - prev_io_counters.write_bytes) / 2,  # Velocidad de escritura (bytes/s)
+            "read_count": current_io_counters.read_count,  # Número total de lecturas
+            "write_count": current_io_counters.write_count,  # Número total de escrituras
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        await websocket.send_json(data)
+        prev_io_counters = current_io_counters
+        await asyncio.sleep(2)  # Actualización cada 2 segundos
+
+#//////////////////////////////////////////////////////////////////////////////////
 # Endpoint GET para obtener procesos
 @app.get("/procesos")
 async def get_procesos():
