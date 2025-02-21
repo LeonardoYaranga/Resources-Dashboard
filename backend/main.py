@@ -115,7 +115,7 @@ async def websocket_network(websocket: WebSocket):
         # Actualizar valores previos
         prev_counters = current_counters
 
-        await asyncio.sleep(2)  
+        await asyncio.sleep(1)  
 
 @app.websocket("/ws/disk")
 async def websocket_disk(websocket: WebSocket):
@@ -141,7 +141,7 @@ async def websocket_disk(websocket: WebSocket):
 
         await websocket.send_json(data)
         prev_io_counters = current_io_counters
-        await asyncio.sleep(2)  # Actualización cada 2 segundos
+        await asyncio.sleep(1)  # Actualización cada 2 segundos
 
 #//////////////////////////////////////////////////////////////////////////////////
 # Endpoint GET para obtener procesos

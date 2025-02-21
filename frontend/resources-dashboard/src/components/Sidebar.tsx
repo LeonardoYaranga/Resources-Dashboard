@@ -1,4 +1,4 @@
-import { Cpu, MemoryStick, Network, Activity } from "lucide-react";
+import { Cpu, MemoryStick, Network, Activity, Disc } from "lucide-react";
 
 interface SidebarProps {
   selectedTab: string;
@@ -59,7 +59,7 @@ const Sidebar = ({ selectedTab, setSelectedTab }: SidebarProps) => {
         }`}
         onClick={() => setSelectedTab("disk")}
       >
-        <Activity className="w-5 h-5 mr-2" /> Disco
+        <Disc className="w-5 h-5 mr-2" /> Disco
       </button>
     </aside>
   );

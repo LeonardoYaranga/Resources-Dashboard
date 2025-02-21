@@ -48,21 +48,12 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
   }, [monitoring]); // Se ejecuta cada vez que monitoring cambia
 
   return (
-    <div>
-      <div className="w-full max-w-7xl mx-auto bg-white p-6 shadow-lg rounded-lg">
-        <h2 className="text-xl font-semibold text-center mb-4 text-black">
-          Uso de CPU en Tiempo Real
-        </h2>
-        <h2 className="text-xl font-semibold text-left mb-4 text-black">
-          Temperatura: { tempCPU }°C
-        </h2>
-        <h2 className="text-xl font-semibold text-left mb-4 text-black">
-          Porcentaje de uso: { cpuUsage }%
-        </h2>
-        <h2 className="text-xl font-semibold text-left mb-4 text-black">
-          Frecuencia: {cpuFrec ? `${cpuFrec.toFixed(2)} MHz` : "0"}
-        </h2>
+    <div className="flex w-full max-w-8xl mx-auto gap-6 p-10 py-5">
 
+      <div className="w-3/4 bg-white p-6 shadow-lg rounded-lg">
+        <h2 className="text-xl font-semibold text-center mb-4 text-black">
+            Uso de CPU en Tiempo Real
+        </h2>
         <Line
           data={{
             labels,
@@ -82,7 +73,23 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
               y: { beginAtZero: true, max: 100 },
             },
           }}
-        />
+          />
+        </div>
+    
+      <div className="w-1/4 h-[220px] bg-white p-6 shadow-lg rounded-lg">
+        <h2 className="text-xl font-semibold text-center mb-4 text-black">
+          Uso de CPU en Tiempo Real
+        </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Temperatura: { tempCPU }°C
+        </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Porcentaje de uso: { cpuUsage }%
+        </h2>
+        <h2 className="text-xl font-semibold text-left mb-4 text-black">
+          Frecuencia: {cpuFrec ? `${cpuFrec.toFixed(2)} MHz` : "0"}
+        </h2>
+
       </div>
     </div>
   );

@@ -56,7 +56,8 @@ const DiskChart = ({ monitoring }: { monitoring: boolean }) => {
   }, [monitoring]);
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-white p-4 shadow-lg rounded-lg">
+    <div className="flex w-full max-w-8xl mx-auto gap-6 p-10 py-5">
+      <div className="w-3/4 bg-white p-6 shadow-lg rounded-lg">
       <h2 className="text-xl font-semibold text-center mb-4 text-black">
         Monitoreo del Disco
       </h2>
@@ -91,30 +92,33 @@ const DiskChart = ({ monitoring }: { monitoring: boolean }) => {
             },
           }}
         />
+      </div>
       {/*Cuadros de Información */}
-      <div className="grid grid-cols-2 gap-4 mt-4 text-center">
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Espacio Total</p>
-          <p className="text-lg font-bold">{total.toFixed(2)} GB</p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Espacio Usado</p>
-          <p className="text-lg font-bold text-red-500">{used.toFixed(2)} GB</p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Espacio Libre</p>
-          <p className="text-lg font-bold text-green-500">
-            {free.toFixed(2)} GB
-          </p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Lecturas</p>
-          <p className="text-lg font-bold">{readCount}</p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Escrituras</p>
-          <p className="text-lg font-bold">{writeCount}</p>
-        </div>
+      <div className="w-1/4 h-[330px] bg-white p-6 shadow-lg rounded-lg">
+          <div className="grid grid-cols-2 gap-4 mt-4 text-center">
+            <div className="bg-gray-900 p-2 rounded-md shadow">
+              <p className="text-sm font-semibold">Espacio Total</p>
+              <p className="text-lg font-bold">{total.toFixed(2)} GB</p>
+            </div>
+            <div className="bg-gray-900 p-2 rounded-md shadow">
+              <p className="text-sm font-semibold">Espacio Usado</p>
+              <p className="text-lg font-bold text-red-500">{used.toFixed(2)} GB</p>
+            </div>
+            <div className="bg-gray-900 p-2 rounded-md shadow">
+              <p className="text-sm font-semibold">Espacio Libre</p>
+              <p className="text-lg font-bold text-green-500">
+                {free.toFixed(2)} GB
+              </p>
+            </div>
+            <div className="bg-gray-900 p-2 rounded-md shadow">
+              <p className="text-sm font-semibold">Lecturas</p>
+              <p className="text-lg font-bold">{readCount}</p>
+            </div>
+            <div className="bg-gray-900 p-2 rounded-md shadow">
+              <p className="text-sm font-semibold">Escrituras</p>
+              <p className="text-lg font-bold">{writeCount}</p>
+            </div>
+          </div>
       </div>
     </div>
   );

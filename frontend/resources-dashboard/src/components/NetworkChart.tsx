@@ -62,7 +62,9 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
   }, [monitoring]);
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-white p-6 shadow-lg rounded-lg">
+    <div className="flex w-full max-w-8xl mx-auto gap-6 p-10 py-5">
+
+      <div className="w-3/4 bg-white p-6 shadow-lg rounded-lg">
       <h2 className="text-xl font-semibold text-center mb-4 text-black">
         Monitoreo de Red en Tiempo Real
       </h2>
@@ -94,37 +96,43 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
             y: { beginAtZero: true },
           },
         }}
-      />
+        />
+      </div>
 
       {/*Cuadros de Información */}
-      <div className="grid grid-cols-2 gap-4 mt-4 text-center">
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Velocidad Subida</p>
-          <p className="text-lg font-bold text-red-500">
-            {currentSpeedSent.toFixed(2)} KB
-          </p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Velocidad Bajada</p>
-          <p className="text-lg font-bold text-red-500">
-            {currentSpeedRecv.toFixed(2)} KB
-          </p>
-        </div>
-        <div className="bg-gray-800 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Paquetes Enviados</p>
-          <p className="text-lg font-bold text-blue-500">{packetsSent}</p>
-        </div>
-        <div className="bg-gray-800 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Paquetes Recibidos</p>
-          <p className="text-lg font-bold text-blue-500">{packetsRecv}</p>
-        </div>
-        <div className="bg-gray-900 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Errores Entrada</p>
-          <p className="text-lg font-bold text-red-500">{errorsIn}</p>
-        </div>
-        <div className="bg-gray-800 p-2 rounded-md shadow">
-          <p className="text-sm font-semibold">Errores Salida</p>
-          <p className="text-lg font-bold text-red-500">{errorsOut}</p>
+      <div className="w-1/4 h-[330px] bg-white p-6 shadow-lg rounded-lg">
+        <h2 className="text-xl font-semibold text-center mb-4 text-black">
+          Información de Red
+        </h2>
+          <div className="grid grid-cols-2 gap-4 mt-4 text-center">
+          <div className="bg-gray-900 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Velocidad Subida</p>
+            <p className="text-lg font-bold text-red-500">
+              {currentSpeedSent.toFixed(2)} KB
+            </p>
+          </div>
+          <div className="bg-gray-900 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Velocidad Bajada</p>
+            <p className="text-lg font-bold text-red-500">
+              {currentSpeedRecv.toFixed(2)} KB
+            </p>
+          </div>
+          <div className="bg-gray-800 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Paquetes Enviados</p>
+            <p className="text-lg font-bold text-blue-500">{packetsSent}</p>
+          </div>
+          <div className="bg-gray-800 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Paquetes Recibidos</p>
+            <p className="text-lg font-bold text-blue-500">{packetsRecv}</p>
+          </div>
+          <div className="bg-gray-900 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Errores Entrada</p>
+            <p className="text-lg font-bold text-red-500">{errorsIn}</p>
+          </div>
+          <div className="bg-gray-800 p-2 rounded-md shadow">
+            <p className="text-sm font-semibold">Errores Salida</p>
+            <p className="text-lg font-bold text-red-500">{errorsOut}</p>
+          </div>
         </div>
       </div>
     </div>

@@ -60,50 +60,59 @@ export const RAMChart = ({ monitoring }: { monitoring: boolean }) => {
     }, [monitoring]);
 
     return (
-        <div className="w-full max-w-7xl mx-auto bg-white p-6 shadow-lg rounded-lg">
-            <h2 className="text-xl font-semibold text-center mb-4 text-black">
+        <div className="flex w-full max-w-8xl mx-auto gap-6 p-10 py-5">
+            {/* Gráfico de RAM - Ocupa 2/3 del ancho */}
+            <div className="w-3/4 bg-white p-6 shadow-lg rounded-lg">
+                <h2 className="text-xl font-semibold text-center mb-4 text-black">
+                    Uso de RAM en Tiempo Real
+                </h2>
+                <Line
+                    data={{
+                        labels,
+                        datasets: [
+                            {
+                                label: "RAM Usage (%)",
+                                data: ramData,
+                                borderColor: "rgb(192, 75, 75)",
+                                backgroundColor: "rgba(192, 75, 75, 0.2)",
+                                fill: true,
+                            },
+                        ],
+                    }}
+                    options={{
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, max: 100 },
+                        },
+                    }}
+                />
+            </div>
+
+            {/* Información de RAM - Ocupa 1/3 del ancho */}
+            <div className="w-1/4 h-[310px] bg-white p-6 shadow-lg rounded-lg">
+                <h2 className="text-xl font-semibold text-center mb-4 text-black">
                 Uso de RAM en Tiempo Real
-            </h2>
-
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Memoria Total: {formatBytes(totalRAM)}
-            </h2>
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Memoria Usada: {formatBytes(usedRAM)}
-            </h2>
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Memoria Libre: {formatBytes(freeRAM)}
-            </h2>
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Buffers: {buffersRAM !== "No disponible" ? formatBytes(Number(buffersRAM)) : "No disponible"}
-            </h2>
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Caché: {cacheRAM !== "No disponible" ? formatBytes(Number(cacheRAM)) : "No disponible"}
-            </h2>
-            <h2 className="text-l font-semibold text-left mb-4 text-black">
-                Uso de RAM: {ramUsage.toFixed(2)}%
-            </h2>
-
-            <Line
-                data={{
-                  labels,
-                  datasets: [
-                    {
-                      label: "RAM Usage (%)",
-                      data: ramData,
-                      borderColor: "rgb(192, 75, 75)",
-                      backgroundColor: "rgba(192, 75, 75, 0.2)",
-                      fill: true,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  scales: {
-                    y: { beginAtZero: true, max: 100 },
-                  },
-                }}
-            />
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Memoria Total: {formatBytes(totalRAM)}
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Memoria Usada: {formatBytes(usedRAM)}
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Memoria Libre: {formatBytes(freeRAM)}
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Buffers: {buffersRAM !== "No disponible" ? formatBytes(Number(buffersRAM)) : "No disponible"}
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Caché: {cacheRAM !== "No disponible" ? formatBytes(Number(cacheRAM)) : "No disponible"}
+                </h2>
+                <h2 className="text-l font-semibold text-left mb-4 text-black">
+                    Uso de RAM: {ramUsage.toFixed(2)}%
+                </h2>
+            </div>
         </div>
+
     );
 };
