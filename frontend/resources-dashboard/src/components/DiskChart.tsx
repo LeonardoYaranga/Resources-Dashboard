@@ -20,7 +20,7 @@ const DiskChart = ({ monitoring }: { monitoring: boolean }) => {
 
   useEffect(() => {
     if (monitoring) {
-      wsref.current = new WebSocket("ws://localhost:8000/ws/disk");
+      wsref.current = new WebSocket("ws://localhost:8000/monitoring/ws/disk");
 
       wsref.current.onmessage = (event) => {
         const data = JSON.parse(event.data);

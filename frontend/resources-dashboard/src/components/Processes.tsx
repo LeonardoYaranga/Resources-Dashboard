@@ -14,7 +14,7 @@ const Processes = () => {
     const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     useEffect(() => {
-        const socket = new WebSocket("ws://localhost:8000/ws/procesos");
+        const socket = new WebSocket("ws://localhost:8000/monitoring/ws/procesos");
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);

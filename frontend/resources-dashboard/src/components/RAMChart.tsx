@@ -22,8 +22,7 @@ export const RAMChart = ({ monitoring }: { monitoring: boolean }) => {
 
     useEffect(() => {
         if (monitoring) {
-            wsRef.current = new WebSocket("ws://localhost:8000/ws/memoria");
-
+            wsRef.current = new WebSocket("ws://localhost:8000/monitoring/ws/memoria");
             wsRef.current.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 

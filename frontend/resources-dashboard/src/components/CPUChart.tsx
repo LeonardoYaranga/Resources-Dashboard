@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import Cookies from "js-cookie";
 import { Line } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
 
@@ -15,7 +16,11 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
 
   useEffect(() => {
     if (monitoring) {
-      wsRef.current = new WebSocket("ws://localhost:8000/ws/cpu");
+      const token = Cookies.get('token'); // Deberías obtenerlo dinámicamente, probablemente del estado o cookies
+
+      wsRef.current = new WebSocket(`ws://localhost:8000/monitoring/ws/cpu?token=${token}`);
+
+      //wsRef.current = new WebSocket("ws://localhost:8000/ws/cpu");
 
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);

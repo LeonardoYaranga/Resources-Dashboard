@@ -1,4 +1,6 @@
 import { Cpu, MemoryStick, Network, Activity, Disc } from "lucide-react";
+import { logout } from "@/utils/auth";
+import { useRouter } from "next/navigation";
 
 interface SidebarProps {
   selectedTab: string;
@@ -6,6 +8,13 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ selectedTab, setSelectedTab }: SidebarProps) => {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login"); // Redirigir al login después de cerrar sesión
+  };
+
   return (
     <aside className="w-64 bg-black shadow-lg p-4 flex flex-col">
       <div className="flex items-center justify-center mb-6 bg-gray-800 rounded-lg">
@@ -60,6 +69,11 @@ const Sidebar = ({ selectedTab, setSelectedTab }: SidebarProps) => {
         onClick={() => setSelectedTab("disk")}
       >
         <Disc className="w-5 h-5 mr-2" /> Disco
+      </button>
+
+      {/* Botón de Logout */}
+      <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 p-3 text-center">
+        Cerrar Sesión
       </button>
     </aside>
   );

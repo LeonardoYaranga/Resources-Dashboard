@@ -23,7 +23,7 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
 
   useEffect(() => {
     if (monitoring) {
-      wsref.current = new WebSocket("ws://localhost:8000/ws/network");
+      wsref.current = new WebSocket("ws://localhost:8000/monitoring/ws/network");
 
       wsref.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
