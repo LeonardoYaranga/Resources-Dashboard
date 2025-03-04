@@ -126,6 +126,8 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
   const [hasWarned, setHasWarned] = useState(false);
   const [hasAlerted, setHasAlerted] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+const lastNotificationTime = useRef<number>(0); // Timestamp de la última notificación
+  const NOTIFICATION_INTERVAL = 5000; // 5 seg
 
   // Obtener configuración del usuario al montar el componente
   useEffect(() => {
@@ -164,8 +166,6 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
         return;
       }
 
-      // Usar el mismo formato que /config (header Authorization en lugar de query param)
-      // Pero como el WebSocket ya está configurado con query param, lo dejamos así por ahora
       wsRef.current = new WebSocket(`ws://localhost:8000/monitoring/ws/cpu?token=${token}`);
 
       wsRef.current.onmessage = (event) => {
@@ -182,22 +182,26 @@ const CPUChart = ({ monitoring }: { monitoring: boolean }) => {
         // Verificar el umbral
         const threshold = config.thresholds.cpu_usage || 80;
         const nearThreshold = threshold * 0.9;
+        const currentTime = Date.now();
+        const timeSinceLastNotification = currentTime - lastNotificationTime.current;
 
         if (data.usage >= threshold) {
-          if (!hasAlerted) {
+          if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
             toast.error(
               `¡Alerta! El uso de CPU (${data.usage.toFixed(1)}%) ha superado el umbral de ${threshold}%`
             );
             setHasAlerted(true);
             setHasWarned(false);
+            lastNotificationTime.current = currentTime;
           }
         } else if (data.usage >= nearThreshold) {
-          if (!hasWarned) {
+          if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
             toast.warn(
               `Advertencia: El uso de CPU (${data.usage.toFixed(1)}%) está cerca del umbral de ${threshold}%`
             );
             setHasWarned(true);
             setHasAlerted(false);
+            lastNotificationTime.current = currentTime;
           }
         } else {
           setHasWarned(false);

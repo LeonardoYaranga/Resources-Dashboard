@@ -273,59 +273,230 @@ async def websocket_procesos(websocket: WebSocket, token: str):
         print(f"Usuario {user_id} desconectado del WebSocket")
 
 
-@monitoring_router.websocket("/ws/network")
-async def websocket_network(websocket: WebSocket):
-    await websocket.accept()
+# @monitoring_router.websocket("/ws/network")
+# async def websocket_network(websocket: WebSocket):
+#     await websocket.accept()
     
-    # Obtener valores iniciales para calcular la velocidad de transmisión
+#     # Obtener valores iniciales para calcular la velocidad de transmisión
+#     prev_counters = psutil.net_io_counters()
+
+#     while True:
+#         current_counters = psutil.net_io_counters()
+
+#         data = {
+#             "bytes_sent": current_counters.bytes_sent,  # Total de bytes enviados
+#             "bytes_recv": current_counters.bytes_recv,  # Total de bytes recibidos
+#             "packets_sent": current_counters.packets_sent,  # Total de paquetes enviados
+#             "packets_recv": current_counters.packets_recv,  # Total de paquetes recibidos
+#             "errors_in": current_counters.errin,  # Errores de entrada
+#             "errors_out": current_counters.errout,  # Errores de salida
+#             "drop_in": current_counters.dropin,  # Paquetes descartados de entrada
+#             "drop_out": current_counters.dropout,  # Paquetes descartados de salida
+#             "speed_sent": (current_counters.bytes_sent - prev_counters.bytes_sent) / 2,  # Velocidad de subida (bytes/s)
+#             "speed_recv": (current_counters.bytes_recv - prev_counters.bytes_recv) / 2,  # Velocidad de bajada (bytes/s)
+#             "timestamp": datetime.utcnow().isoformat()
+#         }
+
+#         await websocket.send_json(data)
+
+#         # Actualizar valores previos
+#         prev_counters = current_counters
+
+#         await asyncio.sleep(1)  
+
+
+@monitoring_router.websocket("/ws/network")
+async def websocket_network(websocket: WebSocket, token: str):
+    await websocket.accept()
+
+    # Validar autenticación con JWT
+    user = await get_current_user(token)
+    if not user:
+        await websocket.close(code=1008)  # Código de cierre por política (auth fallida)
+        return
+
+    user_id = str(user["_id"])
+    report_date = datetime.today().date()
+    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()
+
+    # Crear un reporte vacío en MongoDB
+    report = {
+        "user_id": user_id,
+        "report_date": report_date,
+        "network_data": [],  # Lista para almacenar datos de red con timestamps
+    }
+    result = await network_report_collection.insert_one(report)
+    report_id = result.inserted_id
+
+    # Buffer para almacenar datos antes de guardar
+    buffer_data = {"network_data": []}
+    start_time = datetime.utcnow()
+
+    # Obtener configuración del usuario
+    config = await config_collection.find_one({"user_id": user_id})
+    if not config:
+        config = {"save_interval": 60, "update_frequency": 1}  # Valores por defecto
+
+    # Obtener valores iniciales para calcular la velocidad
     prev_counters = psutil.net_io_counters()
 
-    while True:
-        current_counters = psutil.net_io_counters()
+    try:
+        while True:
+            current_counters = psutil.net_io_counters()
 
-        data = {
-            "bytes_sent": current_counters.bytes_sent,  # Total de bytes enviados
-            "bytes_recv": current_counters.bytes_recv,  # Total de bytes recibidos
-            "packets_sent": current_counters.packets_sent,  # Total de paquetes enviados
-            "packets_recv": current_counters.packets_recv,  # Total de paquetes recibidos
-            "errors_in": current_counters.errin,  # Errores de entrada
-            "errors_out": current_counters.errout,  # Errores de salida
-            "drop_in": current_counters.dropin,  # Paquetes descartados de entrada
-            "drop_out": current_counters.dropout,  # Paquetes descartados de salida
-            "speed_sent": (current_counters.bytes_sent - prev_counters.bytes_sent) / 2,  # Velocidad de subida (bytes/s)
-            "speed_recv": (current_counters.bytes_recv - prev_counters.bytes_recv) / 2,  # Velocidad de bajada (bytes/s)
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            data = {
+                "bytes_sent": current_counters.bytes_sent,
+                "bytes_recv": current_counters.bytes_recv,
+                "packets_sent": current_counters.packets_sent,
+                "packets_recv": current_counters.packets_recv,
+                "errors_in": current_counters.errin,
+                "errors_out": current_counters.errout,
+                "drop_in": current_counters.dropin,
+                "drop_out": current_counters.dropout,
+                "speed_sent": (current_counters.bytes_sent - prev_counters.bytes_sent) / config["update_frequency"],  # Ajustar velocidad por intervalo
+                "speed_recv": (current_counters.bytes_recv - prev_counters.bytes_recv) / config["update_frequency"],
+                "timestamp": datetime.utcnow().isoformat()
+            }
 
-        await websocket.send_json(data)
+            # Agregar al buffer
+            buffer_data["network_data"].append(data)
 
-        # Actualizar valores previos
-        prev_counters = current_counters
+            # Enviar datos al frontend
+            await websocket.send_json(data)
+            await asyncio.sleep(config["update_frequency"])
 
-        await asyncio.sleep(1)  
+            # Guardar en MongoDB según save_interval
+            if (datetime.utcnow() - start_time).total_seconds() >= config["save_interval"]:
+                await network_report_collection.update_one(
+                    {"_id": report_id},
+                    {"$push": {
+                        "network_data": {"$each": buffer_data["network_data"]}
+                    }}
+                )
+                buffer_data = {"network_data": []}
+                start_time = datetime.utcnow()
+
+            # Actualizar valores previos
+            prev_counters = current_counters
+
+    except WebSocketDisconnect:
+        # Guardar datos restantes al desconectarse
+        if buffer_data["network_data"]:
+            await network_report_collection.update_one(
+                {"_id": report_id},
+                {"$push": {
+                    "network_data": {"$each": buffer_data["network_data"]}
+                }}
+            )
+        print(f"Usuario {user_id} desconectado del WebSocket")
+        
+# @monitoring_router.websocket("/ws/disk")
+# async def websocket_disk(websocket: WebSocket):
+#     await websocket.accept()
+    
+#     prev_io_counters = psutil.disk_io_counters()
+
+#     while True:
+#         disk_usage = psutil.disk_usage("/")  # Usa la partición raíz "/"
+#         current_io_counters = psutil.disk_io_counters()
+
+#         data = {
+#             "total": disk_usage.total,  # Espacio total en bytes
+#             "used": disk_usage.used,  # Espacio usado en bytes
+#             "free": disk_usage.free,  # Espacio libre en bytes
+#             "percent": disk_usage.percent,  # Porcentaje de uso del disco
+#             "read_speed": (current_io_counters.read_bytes - prev_io_counters.read_bytes) / 2,  # Velocidad de lectura (bytes/s)
+#             "write_speed": (current_io_counters.write_bytes - prev_io_counters.write_bytes) / 2,  # Velocidad de escritura (bytes/s)
+#             "read_count": current_io_counters.read_count,  # Número total de lecturas
+#             "write_count": current_io_counters.write_count,  # Número total de escrituras
+#             "timestamp": datetime.utcnow().isoformat(),
+#         }
+
+#         await websocket.send_json(data)
+#         prev_io_counters = current_io_counters
+#         await asyncio.sleep(1)  # Actualización cada 2 segundos
+
 
 @monitoring_router.websocket("/ws/disk")
-async def websocket_disk(websocket: WebSocket):
+async def websocket_disk(websocket: WebSocket, token: str):
     await websocket.accept()
-    
+
+    # Validar autenticación con JWT
+    user = await get_current_user(token)
+    if not user:
+        await websocket.close(code=1008)  # Código de cierre por política (auth fallida)
+        return
+
+    user_id = str(user["_id"])
+    report_date = datetime.today().date()
+    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()
+
+    # Crear un reporte vacío en MongoDB
+    report = {
+        "user_id": user_id,
+        "report_date": report_date,
+        "disk_data": [],  # Lista para almacenar datos de disco con timestamps
+    }
+    result = await disk_report_collection.insert_one(report)
+    report_id = result.inserted_id
+
+    # Buffer para almacenar datos antes de guardar
+    buffer_data = {"disk_data": []}
+    start_time = datetime.utcnow()
+
+    # Obtener configuración del usuario
+    config = await config_collection.find_one({"user_id": user_id})
+    if not config:
+        config = {"save_interval": 60, "update_frequency": 1}  # Valores por defecto
+
+    # Obtener valores iniciales para calcular velocidades
     prev_io_counters = psutil.disk_io_counters()
 
-    while True:
-        disk_usage = psutil.disk_usage("/")  # Usa la partición raíz "/"
-        current_io_counters = psutil.disk_io_counters()
+    try:
+        while True:
+            disk_usage = psutil.disk_usage("/")  # Usa la partición raíz "/"
+            current_io_counters = psutil.disk_io_counters()
 
-        data = {
-            "total": disk_usage.total,  # Espacio total en bytes
-            "used": disk_usage.used,  # Espacio usado en bytes
-            "free": disk_usage.free,  # Espacio libre en bytes
-            "percent": disk_usage.percent,  # Porcentaje de uso del disco
-            "read_speed": (current_io_counters.read_bytes - prev_io_counters.read_bytes) / 2,  # Velocidad de lectura (bytes/s)
-            "write_speed": (current_io_counters.write_bytes - prev_io_counters.write_bytes) / 2,  # Velocidad de escritura (bytes/s)
-            "read_count": current_io_counters.read_count,  # Número total de lecturas
-            "write_count": current_io_counters.write_count,  # Número total de escrituras
-            "timestamp": datetime.utcnow().isoformat(),
-        }
+            data = {
+                "total": disk_usage.total,
+                "used": disk_usage.used,
+                "free": disk_usage.free,
+                "percent": disk_usage.percent,
+                "read_speed": (current_io_counters.read_bytes - prev_io_counters.read_bytes) / 2,
+                "write_speed": (current_io_counters.write_bytes - prev_io_counters.write_bytes) / 2,
+                "read_count": current_io_counters.read_count,
+                "write_count": current_io_counters.write_count,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
 
-        await websocket.send_json(data)
-        prev_io_counters = current_io_counters
-        await asyncio.sleep(1)  # Actualización cada 2 segundos
+            # Agregar al buffer
+            buffer_data["disk_data"].append(data)
+
+            # Enviar datos al frontend
+            await websocket.send_json(data)
+            await asyncio.sleep(config["update_frequency"])
+
+            # Guardar en MongoDB según save_interval
+            if (datetime.utcnow() - start_time).total_seconds() >= config["save_interval"]:
+                await disk_report_collection.update_one(
+                    {"_id": report_id},
+                    {"$push": {
+                        "disk_data": {"$each": buffer_data["disk_data"]}
+                    }}
+                )
+                buffer_data = {"disk_data": []}
+                start_time = datetime.utcnow()
+
+            # Actualizar valores previos
+            prev_io_counters = current_io_counters
+
+    except WebSocketDisconnect:
+        # Guardar datos restantes al desconectarse
+        if buffer_data["disk_data"]:
+            await disk_report_collection.update_one(
+                {"_id": report_id},
+                {"$push": {
+                    "disk_data": {"$each": buffer_data["disk_data"]}
+                }}
+            )
+        print(f"Usuario {user_id} desconectado del WebSocket")

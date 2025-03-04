@@ -142,6 +142,8 @@ export const RAMChart = ({ monitoring }: { monitoring: boolean }) => {
   const [hasWarned, setHasWarned] = useState(false);
   const [hasAlerted, setHasAlerted] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const lastNotificationTime = useRef<number>(0); // Timestamp de la última notificación
+  const NOTIFICATION_INTERVAL = 5000; // 5 seg
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return "0 B";
@@ -196,31 +198,35 @@ export const RAMChart = ({ monitoring }: { monitoring: boolean }) => {
         setCacheRAM(data.cache !== null ? data.cache : "No disponible");
         setRamUsage(data.usage);
 
-        // Verificar el umbral
-        const threshold = config.thresholds.ram_usage || 75;
-        const nearThreshold = threshold * 0.9;
+       // Verificar el umbral
+       const threshold = config.thresholds.ram_usage || 75;
+       const nearThreshold = threshold * 0.9;
+       const currentTime = Date.now();
+       const timeSinceLastNotification = currentTime - lastNotificationTime.current;
 
-        if (data.usage >= threshold) {
-          if (!hasAlerted) {
-            toast.error(
-              `¡Alerta! El uso de RAM (${data.usage.toFixed(1)}%) ha superado el umbral de ${threshold}%`
-            );
-            setHasAlerted(true);
-            setHasWarned(false);
-          }
-        } else if (data.usage >= nearThreshold) {
-          if (!hasWarned) {
-            toast.warn(
-              `Advertencia: El uso de RAM (${data.usage.toFixed(1)}%) está cerca del umbral de ${threshold}%`
-            );
-            setHasWarned(true);
-            setHasAlerted(false);
-          }
-        } else {
-          setHasWarned(false);
-          setHasAlerted(false);
-        }
-      };
+       if (data.usage >= threshold) {
+         if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+           toast.error(
+             `¡Alerta! El uso de RAM (${data.usage.toFixed(1)}%) ha superado el umbral de ${threshold}%`
+           );
+           setHasAlerted(true);
+           setHasWarned(false);
+           lastNotificationTime.current = currentTime;
+         }
+       } else if (data.usage >= nearThreshold) {
+         if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+           toast.warn(
+             `Advertencia: El uso de RAM (${data.usage.toFixed(1)}%) está cerca del umbral de ${threshold}%`
+           );
+           setHasWarned(true);
+           setHasAlerted(false);
+           lastNotificationTime.current = currentTime;
+         }
+       } else {
+         setHasWarned(false);
+         setHasAlerted(false);
+       }
+     };
 
       wsRef.current.onclose = () => {
         console.log("Conexión WebSocket cerrada.");

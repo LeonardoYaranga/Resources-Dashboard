@@ -78,7 +78,7 @@ export default function ConfigPage() {
     }
     if (res.ok) {
       alert("Configuración guardada con éxito");
-      router.push("/home");
+      router.push("/main/home");
     } else {
       console.error("Error al guardar configuración:", res.status, res.statusText);
       alert("Error al guardar la configuración");
@@ -151,7 +151,7 @@ export default function ConfigPage() {
             />
           </div>
           <div className="mb-4">
-            <label className="block text-gray-700">Umbral Red (bytes/s)</label>
+            <label className="block text-gray-700">Umbral Red (KB/s)</label>
             <input
               type="number"
               name="thresholds.network_usage"
