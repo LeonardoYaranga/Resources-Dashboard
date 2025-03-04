@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from auth.routes import auth_router
 from routes.monitoring import monitoring_router
 from routes.config_routes import config_router
+from routes.reports_routes import reports_router
 
 app = FastAPI()
 
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 app.include_router(monitoring_router, prefix="/monitoring", tags=["Monitoring"])
 app.include_router(config_router, prefix="/config", tags=["Config"])
+app.include_router(reports_router, prefix="/reports", tags=["Reports"])
 
 @app.get("/")
 async def root():

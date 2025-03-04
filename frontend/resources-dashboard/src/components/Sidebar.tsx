@@ -1,4 +1,4 @@
-import { Cpu, MemoryStick, Network, Activity, Disc, Cog, LogOut } from "lucide-react";
+import { Cpu, MemoryStick, Network, Activity, Disc, Cog, LogOut, ClipboardMinus } from "lucide-react";
 import { logout } from "@/utils/auth";
 import { useRouter } from "next/navigation";
 
@@ -70,7 +70,7 @@ const Sidebar = ({ selectedTab, setSelectedTab }: SidebarProps) => {
       >
         <Disc className="w-5 h-5 mr-2" /> Disco
       </button>
-      {/* Boton para ir a la pagina de configuraciones similar a las otras opciones*/}
+      {/* Boton para ir a la pagina de configuraciones */}
       <button
         className={`flex items-center p-2 rounded-md mb-2 transition ${
           selectedTab === "config"
@@ -81,7 +81,17 @@ const Sidebar = ({ selectedTab, setSelectedTab }: SidebarProps) => {
       >
         <Cog className="w-5 h-5 mr-2" /> Configuracion
       </button>
-
+        {/* Boton para ir a la pagina de reportes*/}
+      <button
+        className={`flex items-center p-2 rounded-md mb-2 transition ${
+          selectedTab === "reports"
+            ? "bg-blue-500 text-white"
+            : "hover:bg-gray-800"
+        }`}
+        onClick={() => setSelectedTab("reports")}
+      >
+        <ClipboardMinus className="w-5 h-5 mr-2" /> Reportes
+      </button>
 
       {/* Botón de Logout */}
       <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 p-3 text-center">
