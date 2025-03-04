@@ -7,7 +7,7 @@ import { RAMmonitor } from "./RAMmonitor";
 import { Networkmonitor } from "./Networkmonitor";
 import { Diskmonitor } from "./DiskMonitor";
 import ConfigPage from "./config";
-
+import Reports from "./reports";
 export default function Home() {
   const [monitoring, setMonitoring] = useState(false);
   const [selectedTab, setSelectedTab] = useState("cpu");
@@ -26,6 +26,7 @@ export default function Home() {
         {selectedTab === "process" && <Processes/>}
         {selectedTab === "disk" && <Diskmonitor/>}
         {selectedTab === "config" && <ConfigPage/>}
+        {selectedTab === "reports" && <Reports/>}
       </main>
     </div>
   );
