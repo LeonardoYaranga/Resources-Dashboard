@@ -6,6 +6,7 @@ import { CPUmonitor } from "./CPUmonitor";
 import { RAMmonitor } from "./RAMmonitor";
 import { Networkmonitor } from "./Networkmonitor";
 import { Diskmonitor } from "./DiskMonitor";
+import ConfigPage from "./config";
 
 export default function Home() {
   const [monitoring, setMonitoring] = useState(false);
@@ -24,6 +25,7 @@ export default function Home() {
         {selectedTab === "network" && <Networkmonitor/>}
         {selectedTab === "process" && <Processes/>}
         {selectedTab === "disk" && <Diskmonitor/>}
+        {selectedTab === "config" && <ConfigPage/>}
       </main>
     </div>
   );
