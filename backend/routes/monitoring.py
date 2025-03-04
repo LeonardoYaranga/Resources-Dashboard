@@ -5,60 +5,23 @@ from datetime import datetime
 import json
 from fastapi.websockets import WebSocket
 from motor.motor_asyncio import AsyncIOMotorClient
-from database import db,cpu_report_collection
+from database import db,config_collection,cpu_report_collection,memory_report_collection,network_report_collection,process_report_collection,disk_report_collection
 from auth.jwt_handler import get_current_user
-
+from bson import ObjectId  # Para manejar IDs de MongoDB
 
 monitoring_router = APIRouter()
 
-# @monitoring_router.websocket("/ws/cpu")
-# async def websocket_cpu(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         usage = psutil.cpu_percent()
-#         data = {"usage": usage, "timestamp": datetime.utcnow().isoformat()}
-#         await websocket.send_json(data)
-#         await asyncio.sleep(1)
-
-
-
-# @monitoring_router.websocket("/ws/cpu")
-# async def websocket_cpu(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         frequency = psutil.cpu_freq().current if psutil.cpu_freq() else None
-        
-#         # Obtener temperatura de la CPU (puede no estar disponible en todos los sistemas)
-#         temperatures = None
-#         if hasattr(psutil, "sensors_temperatures"):
-#             temps = psutil.sensors_temperatures()
-#             if "coretemp" in temps:
-#                 temperatures = temps["coretemp"][0].current  # Primer sensor de temperatura
-        
-#         data = {
-#             "usage": psutil.cpu_percent(),
-#             "temp": temperatures if temperatures else "No disponible",
-#             "frequency": frequency, 
-#             "timestamp": datetime.utcnow().isoformat() 
-#         }
-#         await websocket.send_json(data)
-#         await asyncio.sleep(1)
-
-#####Ruta ws cpu con autenticación
 @monitoring_router.websocket("/ws/cpu")
 async def websocket_cpu(websocket: WebSocket, token: str):
     await websocket.accept()
-    #user = await get_current_user(token, db.users)
-
     user = await get_current_user(token)
     if not user:
         await websocket.close()
         return
 
-    user_id = str(user["_id"])  # Convertir ObjectId a string
-    #report_date = datetime.utcnow().date()  # Fecha del reporte
-    report_date = datetime.today().date()  # Esto es un objeto datetime.date
-    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()  # 🔥 Convertir a string
+    user_id = str(user["_id"])
+    report_date = datetime.today().date()
+    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()
 
     # Crear un reporte vacío al iniciar la conexión
     report = {
@@ -69,15 +32,20 @@ async def websocket_cpu(websocket: WebSocket, token: str):
         "frequency": [],
         "timestamps": []
     }
-    result = await cpu_report_collection.insert_one(report)  
-    report_id = result.inserted_id  # Guardar el ID del reporte creado
+    result = await cpu_report_collection.insert_one(report)
+    report_id = result.inserted_id
 
     buffer_data = {"usage": [], "temp": [], "frequency": [], "timestamps": []}
     start_time = datetime.utcnow()
 
+    # Obtener configuración del usuario
+    config = await config_collection.find_one({"user_id": user_id})
+    if not config:
+        config = {"save_interval": 60, "update_frequency": 1}  # Valores por defecto
+
     try:
         while True:
-            # Recoger datos cada segundo
+            # Recoger datos de CPU
             frequency = psutil.cpu_freq().current if psutil.cpu_freq() else None
             temperatures = None
             if hasattr(psutil, "sensors_temperatures"):
@@ -87,9 +55,9 @@ async def websocket_cpu(websocket: WebSocket, token: str):
 
             data = {
                 "usage": psutil.cpu_percent(),
-                "temp": temperatures if temperatures else "No disponible",
+                "temp": temperatures if temperatures else None,  # Cambié "No disponible" a None para facilitar manejo en frontend
                 "frequency": frequency,
-                "timestamp": datetime.utcnow().isoformat()  
+                "timestamp": datetime.utcnow().isoformat()
             }
 
             # Agregar datos al buffer
@@ -98,13 +66,14 @@ async def websocket_cpu(websocket: WebSocket, token: str):
             buffer_data["frequency"].append(data["frequency"])
             buffer_data["timestamps"].append(data["timestamp"])
 
+            # Enviar datos al frontend según update_frequency
             await websocket.send_json(data)
-            await asyncio.sleep(1)
+            await asyncio.sleep(config["update_frequency"])
 
-            # Cada 1 minuto, actualizar el reporte en MongoDB
-            if (datetime.utcnow() - start_time).total_seconds() >= 6000:
+            # Guardar en MongoDB según save_interval
+            if (datetime.utcnow() - start_time).total_seconds() >= config["save_interval"]:
                 await cpu_report_collection.update_one(
-                    {"_id": report_id},  # Buscamos el reporte por ID
+                    {"_id": report_id},
                     {"$push": {
                         "usage": {"$each": buffer_data["usage"]},
                         "temp": {"$each": buffer_data["temp"]},
@@ -112,48 +81,197 @@ async def websocket_cpu(websocket: WebSocket, token: str):
                         "timestamps": {"$each": buffer_data["timestamps"]}
                     }}
                 )
-                buffer_data = {"usage": [], "temp": [], "frequency": [], "timestamps": []}
+                buffer_data = {key: [] for key in buffer_data}
                 start_time = datetime.utcnow()
 
     except WebSocketDisconnect:
+        # Guardar datos restantes al desconectarse
+        if buffer_data["timestamps"]:  # Si hay datos en el buffer
+            await cpu_report_collection.update_one(
+                {"_id": report_id},
+                {"$push": {
+                    "usage": {"$each": buffer_data["usage"]},
+                    "temp": {"$each": buffer_data["temp"]},
+                    "frequency": {"$each": buffer_data["frequency"]},
+                    "timestamps": {"$each": buffer_data["timestamps"]}
+                }}
+            )
         print(f"Usuario {user_id} desconectado del WebSocket")
 
-# Actualizar el reporte con los datos restantes     
 @monitoring_router.websocket("/ws/memoria")
-async def websocket_memoria(websocket: WebSocket):
+async def websocket_memoria(websocket: WebSocket, token: str):
     await websocket.accept()
-    while True:
-        mem = psutil.virtual_memory()
 
-        data = {
-            "total": mem.total,  # Memoria total en bytes
-            "used": mem.used,  # Memoria usada en bytes
-            "free": mem.available,  # Memoria libre en bytes
-            "buffers": mem.buffers if hasattr(mem, "buffers") else "No disponible",  # Buffers (algunos sistemas no lo soportan)
-            "cache": mem.cached if hasattr(mem, "cached") else "No disponible",  # Caché (algunos sistemas no lo soportan)
-            "usage": mem.percent,  # Uso de memoria en porcentaje
-            "timestamp": datetime.utcnow().isoformat(),
-        }
+    # Validar autenticación con JWT
+    user = await get_current_user(token)
+    if not user:
+        await websocket.close(code=1008)  # Código de cierre por política (auth fallida)
+        return
 
-        await websocket.send_json(data)
-        await asyncio.sleep(1)  # Actualización cada segundo
+    user_id = str(user["_id"])
+    report_date = datetime.today().date()
+    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()
+
+    # Crear un reporte vacío en MongoDB
+    report = {
+        "user_id": user_id,
+        "report_date": report_date,
+        "total": [],
+        "used": [],
+        "free": [],
+        "buffers": [],
+        "cache": [],
+        "usage": [],
+        "timestamps": []
+    }
+    result = await memory_report_collection.insert_one(report)
+    report_id = result.inserted_id
+
+    # Buffer para almacenar datos antes de guardar
+    buffer_data = {
+        "total": [], "used": [], "free": [], "buffers": [], "cache": [],
+        "usage": [], "timestamps": []
+    }
+    start_time = datetime.utcnow()
+
+    # Obtener configuración del usuario
+    config = await config_collection.find_one({"user_id": user_id})
+    if not config:
+        config = {"save_interval": 60, "update_frequency": 1}  # Valores por defecto
+
+    try:
+        while True:
+            mem = psutil.virtual_memory()
+            data = {
+                "total": mem.total,
+                "used": mem.used,
+                "free": mem.available,
+                "buffers": mem.buffers if hasattr(mem, "buffers") else None,
+                "cache": mem.cached if hasattr(mem, "cached") else None,
+                "usage": mem.percent,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            # Agregar al buffer
+            buffer_data["total"].append(data["total"])
+            buffer_data["used"].append(data["used"])
+            buffer_data["free"].append(data["free"])
+            buffer_data["buffers"].append(data["buffers"])
+            buffer_data["cache"].append(data["cache"])
+            buffer_data["usage"].append(data["usage"])
+            buffer_data["timestamps"].append(data["timestamp"])
+
+            # Enviar datos al frontend según update_frequency
+            await websocket.send_json(data)
+            await asyncio.sleep(config["update_frequency"])
+
+            # Guardar en MongoDB según save_interval
+            if (datetime.utcnow() - start_time).total_seconds() >= config["save_interval"]:
+                await memory_report_collection.update_one(
+                    {"_id": report_id},
+                    {"$push": {
+                        "total": {"$each": buffer_data["total"]},
+                        "used": {"$each": buffer_data["used"]},
+                        "free": {"$each": buffer_data["free"]},
+                        "buffers": {"$each": buffer_data["buffers"]},
+                        "cache": {"$each": buffer_data["cache"]},
+                        "usage": {"$each": buffer_data["usage"]},
+                        "timestamps": {"$each": buffer_data["timestamps"]}
+                    }}
+                )
+                buffer_data = {key: [] for key in buffer_data}
+                start_time = datetime.utcnow()
+
+    except WebSocketDisconnect:
+        # Guardar datos restantes al desconectarse
+        if buffer_data["timestamps"]:  # Si hay datos en el buffer
+            await memory_report_collection.update_one(
+                {"_id": report_id},
+                {"$push": {
+                    "total": {"$each": buffer_data["total"]},
+                    "used": {"$each": buffer_data["used"]},
+                    "free": {"$each": buffer_data["free"]},
+                    "buffers": {"$each": buffer_data["buffers"]},
+                    "cache": {"$each": buffer_data["cache"]},
+                    "usage": {"$each": buffer_data["usage"]},
+                    "timestamps": {"$each": buffer_data["timestamps"]}
+                }}
+            )
+        print(f"Usuario {user_id} desconectado del WebSocket")
 
 
-# WebSocket para procesos en tiempo real
 @monitoring_router.websocket("/ws/procesos")
-async def websocket_procesos(websocket: WebSocket):
+async def websocket_procesos(websocket: WebSocket, token: str):
     await websocket.accept()
-    while True:
-        procesos = []
-        for proc in psutil.process_iter(attrs=['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
-            procesos.monitoring_routerend(proc.info)  # Extrae solo la info relevante
 
-        data = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "procesos": procesos
-        }
-        await websocket.send_json(data)
-        await asyncio.sleep(2)  # Actualizar cada 2 segundos
+    # Validar autenticación con JWT
+    user = await get_current_user(token)
+    if not user:
+        await websocket.close(code=1008)  # Código de cierre por política (auth fallida)
+        return
+
+    user_id = str(user["_id"])
+    report_date = datetime.today().date()
+    report_date = datetime.combine(report_date, datetime.min.time()).isoformat()
+
+    # Crear un reporte vacío en MongoDB
+    report = {
+        "user_id": user_id,
+        "report_date": report_date,
+        "processes": [],  # Lista de procesos con timestamps
+    }
+    result = await process_report_collection.insert_one(report)
+    report_id = result.inserted_id
+
+    # Buffer para almacenar datos antes de guardar
+    buffer_data = {"processes": []}
+    start_time = datetime.utcnow()
+
+    # Obtener configuración del usuario
+    config = await config_collection.find_one({"user_id": user_id})
+    if not config:
+        config = {"save_interval": 60, "update_frequency": 2}  # Valores por defecto
+
+    try:
+        while True:
+            procesos = []
+            for proc in psutil.process_iter(attrs=['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
+                procesos.append(proc.info)  # Extrae solo la info relevante
+
+            data = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "procesos": procesos
+            }
+
+            # Agregar al buffer
+            buffer_data["processes"].append(data)
+
+            # Enviar datos al frontend
+            await websocket.send_json(data)
+            await asyncio.sleep(config["update_frequency"])
+
+            # Guardar en MongoDB según save_interval
+            if (datetime.utcnow() - start_time).total_seconds() >= config["save_interval"]:
+                await process_report_collection.update_one(
+                    {"_id": report_id},
+                    {"$push": {
+                        "processes": {"$each": buffer_data["processes"]}
+                    }}
+                )
+                buffer_data = {"processes": []}
+                start_time = datetime.utcnow()
+
+    except WebSocketDisconnect:
+        # Guardar datos restantes al desconectarse
+        if buffer_data["processes"]:  # Si hay datos en el buffer
+            await process_report_collection.update_one(
+                {"_id": report_id},
+                {"$push": {
+                    "processes": {"$each": buffer_data["processes"]}
+                }}
+            )
+        print(f"Usuario {user_id} desconectado del WebSocket")
+
 
 @monitoring_router.websocket("/ws/network")
 async def websocket_network(websocket: WebSocket):
