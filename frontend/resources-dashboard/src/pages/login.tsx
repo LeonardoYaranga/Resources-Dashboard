@@ -2,61 +2,119 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-
-//import { login } from "@/utils/auth";  antes con token en la local storage
+import { Mail, Lock, Loader2 } from "lucide-react"; // Íconos de lucide-react
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // Estado para el spinner
   const router = useRouter();
+
+  const validateForm = () => {
+    if (!email || !password) {
+      setError("Por favor, completa todos los campos.");
+      return false;
+    }
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      setError("Por favor, ingresa un correo válido");
+      return false;
+    }
+    if (password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return false;
+    }
+    return true;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    // Validar que email y password no estén vacíos
-    if (!email || !password) {
-      setError("Por favor, completa todos los campos.");
+    if (!validateForm()) {
+      setIsLoading(false);
       return;
     }
 
-    const response = await fetch("http://localhost:8000/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password: password.trim() }), // Eliminar espacios en blanco
-    });
+    try {
+      const response = await fetch("http://localhost:8000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+      });
 
-    const data = await response.json();
-    if (response.ok) {
+      const data = await response.json();
+      if (response.ok) {
         Cookies.set("token", data.access_token, { expires: 1 });
         router.push("/main/home");
-    } else {
-      // Manejar error de validación
-      if (Array.isArray(data.detail)) {
-        setError(data.detail.map((err: any) => err.msg).join(", ")); // Extraer solo los mensajes de error
       } else {
-        setError(data.detail);
+        if (Array.isArray(data.detail)) {
+          setError(data.detail.map((err: any) => err.msg).join(", "));
+        } else {
+          setError(data.detail || "Error al iniciar sesión");
+        }
       }
+    } catch (err) {
+      setError("Error de conexión con el servidor");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-        <h2 className="text-2xl font-bold text-center">Iniciar Sesión</h2>
-        {error && <p className="text-red-500 text-center mt-2">{error}</p>}
-        <form onSubmit={handleLogin} className="space-y-4 mt-4">
-          <input type="email" placeholder="Correo" className="w-full p-2 border rounded-md"
-            value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="Contraseña" className="w-full p-2 border rounded-md"
-            value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <button type="submit" className="w-full bg-blue-500 text-white p-2 rounded-md font-bold hover:bg-blue-700">
-            Iniciar Sesión
+    <div className="flex justify-center items-center min-h-screen bg-gray-900 p-4">
+      <div className="bg-black p-8 rounded-lg shadow-xl w-full max-w-md border border-gray-800">
+        <h2 className="text-3xl font-bold text-center text-white mb-6">Iniciar Sesión</h2>
+        {error && (
+          <p className="text-red-400 text-center mb-4 bg-red-900/20 p-2 rounded-md">{error}</p>
+        )}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="email"
+              placeholder="Correo"
+              className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="password"
+              placeholder="Contraseña"
+              className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-green-700 text-white p-3 rounded-md font-bold hover:bg-green-800 transition-colors duration-200 flex items-center justify-center"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Iniciando...
+              </>
+            ) : (
+              "Iniciar Sesión"
+            )}
           </button>
         </form>
-        <p className="text-center mt-4">¿No tienes cuenta? <a href="/register" className="text-blue-500">Regístrate</a></p>
+        <p className="text-center mt-6 text-gray-300">
+          ¿No tienes cuenta?{" "}
+          <a href="/register" className="text-green-400 hover:underline">
+            Regístrate
+          </a>
+        </p>
       </div>
     </div>
   );

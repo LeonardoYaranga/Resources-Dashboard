@@ -8,8 +8,20 @@ import "react-toastify/dist/ReactToastify.css";
 
 Chart.register(...registerables);
 
-const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
-  // Variables al inicio del componente
+interface NetworkData {
+  speed_sent: number;
+  speed_recv: number;
+  packets_sent?: number;
+  packets_recv?: number;
+  errors_in?: number;
+  errors_out?: number;
+}
+
+interface NetworkChartProps {
+  data: NetworkData;
+}
+
+const NetworkChart: React.FC<NetworkChartProps> = ({ data }) => {
   const NOTIFICATION_INTERVAL = 5000; // 5 segundos
   const lastNotificationTime = useRef<number>(0); // Timestamp de la última notificación
 
@@ -27,7 +39,6 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
   });
   const [hasWarned, setHasWarned] = useState(false);
   const [hasAlerted, setHasAlerted] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
 
   // Obtener configuración del usuario al montar el componente
   useEffect(() => {
@@ -51,108 +62,76 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
     fetchConfig();
   }, []);
 
+  // Actualizar estado con los datos recibidos
   useEffect(() => {
-    if (monitoring) {
-      const token = Cookies.get("token");
-      if (!token) {
-        console.log("No hay token para WebSocket");
-        return;
+    const uploadSpeed = data.speed_sent / 1024; // Bytes to KB/s
+    const downloadSpeed = data.speed_recv / 1024; // Bytes to KB/s
+    const timestamp = new Date().toLocaleTimeString();
+
+    setSpeedSent((prev) => [...prev.slice(-99), uploadSpeed]);
+    setSpeedRecv((prev) => [...prev.slice(-99), downloadSpeed]);
+    setCurrentSpeedSent(uploadSpeed);
+    setCurrentSpeedRecv(downloadSpeed);
+    setErrorsIn(data.errors_in || 0);
+    setErrorsOut(data.errors_out || 0);
+    setPacketsSent(data.packets_sent || 0);
+    setPacketsRecv(data.packets_recv || 0);
+    setLabels((prev) => [...prev.slice(-99), timestamp]);
+
+    // Verificar el umbral para la velocidad de red (descarga y subida)
+    const threshold = config.thresholds.network_usage || 70; // En KB/s
+    const nearThreshold = threshold * 0.9;
+    const currentTime = Date.now();
+    const timeSinceLastNotification = currentTime - lastNotificationTime.current;
+
+    // Para velocidad de descarga
+    if (downloadSpeed >= threshold) {
+      if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+        toast.error(
+          `¡Alerta! La velocidad de descarga (${downloadSpeed.toFixed(1)} KB/s) ha superado el umbral de ${threshold} KB/s`
+        );
+        setHasAlerted(true);
+        setHasWarned(false);
+        lastNotificationTime.current = currentTime;
       }
-
-      wsRef.current = new WebSocket(`ws://localhost:8000/monitoring/ws/network?token=${token}`);
-
-      wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        const uploadSpeed = data.speed_sent / 1024; // Bytes to KB/s
-        const downloadSpeed = data.speed_recv / 1024; // Bytes to KB/s
-        setSpeedSent((prev) => [...prev.slice(-99), uploadSpeed]);
-        setSpeedRecv((prev) => [...prev.slice(-99), downloadSpeed]);
-        setCurrentSpeedSent(uploadSpeed);
-        setCurrentSpeedRecv(downloadSpeed);
-        setErrorsIn(data.errors_in);
-        setErrorsOut(data.errors_out);
-        setPacketsSent(data.packets_sent);
-        setPacketsRecv(data.packets_recv);
-        setLabels((prev) => [
-          ...prev.slice(-99),
-          new Date(data.timestamp).toLocaleTimeString(),
-        ]);
-
-        // Verificar el umbral para la velocidad de red (descarga y subida)
-        const threshold = config.thresholds.network_usage || 70; // En KB/s
-        const nearThreshold = threshold * 0.9;
-        const currentTime = Date.now();
-        const timeSinceLastNotification = currentTime - lastNotificationTime.current;
-
-        // Para velocidad de descarga
-        if (downloadSpeed >= threshold) {
-          if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
-            toast.error(
-              `¡Alerta! La velocidad de descarga (${downloadSpeed.toFixed(1)} KB/s) ha superado el umbral de ${threshold} KB/s`
-            );
-            setHasAlerted(true);
-            setHasWarned(false);
-            lastNotificationTime.current = currentTime;
-          }
-        } else if (downloadSpeed >= nearThreshold) {
-          if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
-            toast.warn(
-              `Advertencia: La velocidad de descarga (${downloadSpeed.toFixed(1)} KB/s) está cerca del umbral de ${threshold} KB/s`
-            );
-            setHasWarned(true);
-            setHasAlerted(false);
-            lastNotificationTime.current = currentTime;
-          }
-        } else {
-          setHasWarned(false);
-          setHasAlerted(false);
-        }
-
-        // Para velocidad de subida
-        if (uploadSpeed >= threshold) {
-          if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
-            toast.error(
-              `¡Alerta! La velocidad de subida (${uploadSpeed.toFixed(1)} KB/s) ha superado el umbral de ${threshold} KB/s`
-            );
-            setHasAlerted(true);
-            setHasWarned(false);
-            lastNotificationTime.current = currentTime;
-          }
-        } else if (uploadSpeed >= nearThreshold) {
-          if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
-            toast.warn(
-              `Advertencia: La velocidad de subida (${uploadSpeed.toFixed(1)} KB/s) está cerca del umbral de ${threshold} KB/s`
-            );
-            setHasWarned(true);
-            setHasAlerted(false);
-            lastNotificationTime.current = currentTime;
-          }
-        } else {
-          setHasWarned(false);
-          setHasAlerted(false);
-        }
-      };
-
-      wsRef.current.onclose = () => {
-        console.log("Conexión WebSocket cerrada.");
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error("Error en WebSocket:", error);
-      };
+    } else if (downloadSpeed >= nearThreshold) {
+      if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+        toast.warn(
+          `Advertencia: La velocidad de descarga (${downloadSpeed.toFixed(1)} KB/s) está cerca del umbral de ${threshold} KB/s`
+        );
+        setHasWarned(true);
+        setHasAlerted(false);
+        lastNotificationTime.current = currentTime;
+      }
     } else {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      setHasWarned(false);
+      setHasAlerted(false);
     }
 
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+    // Para velocidad de subida
+    if (uploadSpeed >= threshold) {
+      if (!hasAlerted && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+        toast.error(
+          `¡Alerta! La velocidad de subida (${uploadSpeed.toFixed(1)} KB/s) ha superado el umbral de ${threshold} KB/s`
+        );
+        setHasAlerted(true);
+        setHasWarned(false);
+        lastNotificationTime.current = currentTime;
       }
-    };
-  }, [monitoring, config]);
+    } else if (uploadSpeed >= nearThreshold) {
+      if (!hasWarned && timeSinceLastNotification >= NOTIFICATION_INTERVAL) {
+        toast.warn(
+          `Advertencia: La velocidad de subida (${uploadSpeed.toFixed(1)} KB/s) está cerca del umbral de ${threshold} KB/s`
+        );
+        setHasWarned(true);
+        setHasAlerted(false);
+        lastNotificationTime.current = currentTime;
+      }
+    } else {
+      setHasWarned(false);
+      setHasAlerted(false);
+    }
+  }, [data, config]);
 
   // Cambiar color según el umbral (aplicado a velocidad de descarga y subida)
   const getBorderColorRecv = () => {
@@ -208,15 +187,11 @@ const NetworkChart = ({ monitoring }: { monitoring: boolean }) => {
         <div className="grid grid-cols-2 gap-4 mt-4 text-center">
           <div className="bg-gray-900 p-2 rounded-md shadow">
             <p className="text-sm font-semibold">Velocidad Subida</p>
-            <p className="text-lg font-bold text-red-500">
-              {currentSpeedSent.toFixed(2)} KB/s
-            </p>
+            <p className="text-lg font-bold text-red-500">{currentSpeedSent.toFixed(2)} KB/s</p>
           </div>
           <div className="bg-gray-900 p-2 rounded-md shadow">
             <p className="text-sm font-semibold">Velocidad Bajada</p>
-            <p className="text-lg font-bold text-red-500">
-              {currentSpeedRecv.toFixed(2)} KB/s
-            </p>
+            <p className="text-lg font-bold text-red-500">{currentSpeedRecv.toFixed(2)} KB/s</p>
           </div>
           <div className="bg-gray-800 p-2 rounded-md shadow">
             <p className="text-sm font-semibold">Paquetes Enviados</p>

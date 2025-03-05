@@ -1,25 +1,25 @@
-import DiskChart from "@/components/DiskChart";
-import React, { useState } from "react";
+import DiskChart from '@/components/DiskChart';
+import React from 'react';
 
-export const Diskmonitor = () => {
-  const [monitoring, setMonitoring] = useState(false);
+interface DiskData {
+  percent: number;
+  total: number;
+  used: number;
+  free?: number;
+  read_speed?: number;
+  write_speed?: number;
+  read_count?: number;
+  write_count?: number;
+}
+
+interface DiskmonitorProps {
+  data: DiskData;
+}
+
+export const Diskmonitor: React.FC<DiskmonitorProps> = ({ data }) => {
   return (
     <div className="py-20">
-      <DiskChart monitoring={monitoring} />
-      <div className="flex items-center justify-center space-x-4 py-8">
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          onClick={() => setMonitoring(true)}
-        >
-          Iniciar Monitoreo
-        </button>
-        <button
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-          onClick={() => setMonitoring(false)}
-        >
-          Detener Monitoreo
-        </button>
-      </div>
+      <DiskChart data={data} />
     </div>
   );
 };
